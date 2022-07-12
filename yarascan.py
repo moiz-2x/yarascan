@@ -5,21 +5,20 @@ import json
 import hashlib
 
 #bien i se lay ra tung file, output cuoi cung ghi ra file
-global output, i
+global output, file_path
 output =  {}
 
 #ham se duoc goi khi fil da match voi rule
 def matched_rule(data):
-    path_file = i
-    head, tail = os.path.split(path_file)
+    head, tail = os.path.split(file_path)
     #ghi vao output
     if tail not in output:
         output[tail] = {}
         output[tail]["path_full"] = head
-        output[tail]["created_date"] = os.path.getctime(path_file)
-        output[tail]["modified_date"] = os.path.getmtime(path_file)
-        output[tail]["last_accessed_date"] = os.path.getatime(path_file)
-        f = open(path_file, "rb")
+        output[tail]["created_date"] = os.path.getctime(file_path)
+        output[tail]["modified_date"] = os.path.getmtime(file_path)
+        output[tail]["last_accessed_date"] = os.path.getatime(file_path)
+        f = open(file_path, "rb")
         raw_data = f.read()
         f.close()
         output[tail]["md5"] = hashlib.md5(raw_data).hexdigest()
@@ -37,28 +36,33 @@ def matched_rule(data):
         output[tail]["reason"+"_"+data['rule']][z][2] = str(output[tail]["reason"+"_"+data['rule']][z][2])
 
 #input path
-file_path = input("Input directory for scanning: ")
-list_file = []
+input_path = input("Input directory for scanning: ")
 
-#duyet tat ca file va luu vao list_file[]
-for (root, dirs, files) in os.walk(file_path, topdown=True):
+list_rule = []
+#Dung de compile yara rule
+for (root,dirs,files) in os.walk("yara",topdown=True):
+    for z in files:
+        try:
+            rule_path = ""
+            rule_path = str(root+"\\"+z)
+            list_rule.append(yara.compile(rule_path))
+        except:
+            continue
+
+#duyet tat ca file kiem tra
+for (root, dirs, files) in os.walk(input_path, topdown=True):
     for i in files:
-        path_f = root + "\\" + i
-        list_file.append(path_f)
-
-#load tung yara rule voi tung file
-for (root1, dirs1, rules1) in os.walk(r"compiled_rule", topdown=True):
-    for i in list_file: #Lay ra tung file 
-        for j in rules1: #Load ra tung rule
-            path_rule = ""
-            path_rule = root1 + "\\" + j
-            rule = yara.load(path_rule)
+        file_path = ''
+        file_path = str(root+"\\"+i)
+        for rule in list_rule:
             #kiem tra tung rule co match hay khong, neu match thi goi ham matched_rule
-            matches = rule.match(i, callback=matched_rule, which_callbacks=yara.CALLBACK_MATCHES) 
+            matches = rule.match(file_path, callback=matched_rule, which_callbacks=yara.CALLBACK_MATCHES) 
+        
 
 #ghi ra file
 with open("ouput.json", "w") as f1:
     output = json.dumps(output, indent = 4)
     f1.write(output)
     f1.close()
+
 input("wait for enter to exit")
